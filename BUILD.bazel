@@ -1,0 +1,53 @@
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@npm//vite:index.bzl", "vite")
+load("@npm//@bazel/typescript:index.bzl", "ts_project")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("//:vite.bzl", "vite_project")
+
+write_file(
+    name = "chdir",
+    out = "chdir.js",
+    content = ["process.chdir(require('path').join(process.env.BUILD_WORKSPACE_DIRECTORY, '" + package_name() + "'));"],
+)
+
+# Run Vite from the source directory
+vite(
+    name = "dev",
+    args = [
+        "--node_options=--require=./$(rootpath :chdir)",
+    ],
+    data = [":chdir"],
+)
+
+# ts_project only for validation
+ts_project(
+    name = "ts",
+    srcs = glob(["src/*"]),
+    tsconfig = "tsconfig.json",
+    deps = [
+        "@npm//@types/react",
+        "@npm//@types/react-dom",
+        "@npm//vite",
+    ],
+)
+
+vite_project(
+    name = "dist",
+    srcs = glob(["src/*"]) + [
+        "index.html",
+        "tsconfig.json",
+        "vite.config.ts",
+    ],
+    deps = [
+        "@npm//@vitejs/plugin-react-refresh",
+        "@npm//react",
+        "@npm//react-dom",
+    ],
+)
+
+pkg_tar(
+    name = "dist_tar",
+    srcs = [":dist"],
+    extension = "tar",
+    strip_prefix = "dist",
+)
